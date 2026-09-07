@@ -98,15 +98,33 @@ def _action_within_scope(action,scope):
     if 'currency' in scope and params.get('currency')!=scope['currency']: return False
     return True
 
-def verify_receipt(r,*,trust=None,previous_receipts=None,seen_nonces=None,now=None,mode='historical',require_execution=True,external_evidence=None,_visited=None):
+def verify_receipt(r,*,trust=None,previous_receipts=None,seen_nonces=None,now=None,mode='historical',require_execution=True,external_evidence=None,_visited=None,_memo=None,_budget=None):
     errors=[]
-    def fail(s): errors.append(s)
+    def fail(s):
+        if len(errors)<64: errors.append(str(s)[:512])
     try:
         canonical_bytes(r)
         from .schema import validate
         validate(r)
     except Exception as e: return ['schema/canonicalization: '+str(e)]
     trust=trust or {}; now=now or datetime.now(timezone.utc)
+    if _memo is None: _memo={}
+    if _budget is None: _budget=[0]
+    visited=_visited or frozenset()
+    digest=receipt_digest(r)
+    if digest in visited: return ['lineage cycle']
+    cache_key=(digest,mode,require_execution)
+    cacheable=seen_nonces is None and external_evidence is None
+    if cacheable and cache_key in _memo: return list(_memo[cache_key])
+    if _budget[0]>=256: return ['lineage verification work limit exceeded']
+    _budget[0]+=1
+    if _visited is None and previous_receipts is not None:
+        if not isinstance(previous_receipts,dict) or len(previous_receipts)>64:
+            return ['lineage parent count exceeded']
+        try:
+            if sum(len(canonical_bytes(p)) for p in previous_receipts.values())>16*1024*1024:
+                return ['lineage parent bytes exceeded']
+        except Exception as e: return ['lineage parent canonicalization: '+str(e)]
     if mode not in ('historical','preflight'): return ['unsupported verification mode']
     if now.tzinfo is None: return ['verifier clock must be timezone-aware']
     try:
@@ -171,14 +189,12 @@ def verify_receipt(r,*,trust=None,previous_receipts=None,seen_nonces=None,now=No
     if r['lineage']['delegation_parent'] and r['lineage']['delegation_parent'] not in r['lineage']['previous']: fail('delegation parent not in lineage')
     if previous_receipts is None and r['lineage']['previous']: fail('lineage parents not supplied')
     if previous_receipts is not None:
-        visited=_visited or frozenset(); digest=receipt_digest(r)
-        if digest in visited: fail('lineage cycle'); return errors
-        if len(visited)>64: fail('lineage depth exceeded'); return errors
+        if len(visited)>=64: fail('lineage depth exceeded'); return errors
         for d in r['lineage']['previous']:
             parent=previous_receipts.get(d)
             if parent is None: fail('missing lineage parent '+d); continue
             if receipt_digest(parent)!=d: fail('forged lineage parent '+d); continue
-            pe=verify_receipt(parent,trust=trust,previous_receipts=previous_receipts,now=now,require_execution=True,_visited=visited|{digest})
+            pe=verify_receipt(parent,trust=trust,previous_receipts=previous_receipts,now=now,require_execution=True,_visited=visited|{digest},_memo=_memo,_budget=_budget)
             if pe: fail('invalid lineage parent '+d+': '+'; '.join(pe))
             try:
                 if d==r['lineage']['delegation_parent']:
@@ -187,4 +203,5 @@ def verify_receipt(r,*,trust=None,previous_receipts=None,seen_nonces=None,now=No
                     if parent['agent']['id']==r['agent']['id']: fail('self-delegation')
                 if timestamp(parent['issued_at'])>timestamp(r['issued_at']): fail('lineage time inversion')
             except Exception as e: fail('lineage: '+str(e))
+    if not errors and cacheable: _memo[cache_key]=()
     return errors
