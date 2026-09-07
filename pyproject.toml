@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+[project]
+name = "ddc-action-receipt"
+version = "0.1.0"
+description = "Portable cryptographic evidence for consequential agent actions"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = ["cryptography>=42,<49", "jsonschema>=4.21,<5"]
+license = "Apache-2.0"
+authors = [{name = "DDC Action Receipt contributors"}]
+[project.scripts]
+ddcar = "ddcar.cli:main"
+[tool.setuptools]
+packages = ["ddcar"]
+[tool.setuptools.package-data]
+ddcar = ["receipt.schema.json"]
+[tool.pytest.ini_options]
+testpaths = ["tests"]

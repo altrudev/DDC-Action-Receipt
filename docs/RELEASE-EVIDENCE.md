@@ -1,0 +1,7 @@
+# v0.1 reference-candidate evidence
+
+Date: 2026-09-06. This record concerns the public reference implementation only. No live customer payment, cloud mutation, or physical-device operation was performed.
+
+The initial expanded Python adversarial suite passed 38 tests. Three additional fail-open cases were subsequently discovered: missing ALLOW expiry, empty authority scope, and dropped inherited scope limits. All three scope/expiry defects were corrected, and the final local suite passed 43 tests. Tests cover signed authority, key/principal bindings, exact-action substitution, malformed canonical JSON, stale evidence, historical expiry, forged or missing lineage, explicit delegation, scope expansion, unresolved constraints, transport attestation, persistent and concurrent replay reservation, and CLI verification. The final package compiled and an offline wheel was built using the installed packaging toolchain. A separate installation of the earlier wheel verified the public example using locally available dependencies. A fully isolated dependency download was not possible in the offline build environment; this is not a claim of independent supply-chain assurance.
+
+DDC methodology review: see DDC-ASSURANCE.md. The public reference is accepted as experimental. Production failure-path independence, external outcome verification, hardware-backed authority, trusted timestamp/revocation evidence, and destination-specific idempotency remain unresolved. No production release or ratified-standard claim is made.
