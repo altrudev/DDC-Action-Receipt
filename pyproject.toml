@@ -3,7 +3,7 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 [project]
 name = "ddc-action-receipt"
-version = "0.1.0"
+version = "0.1.1"
 description = "Portable cryptographic evidence for consequential agent actions"
 readme = "README.md"
 requires-python = ">=3.10"
