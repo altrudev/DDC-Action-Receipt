@@ -47,3 +47,7 @@ A valid signature proves a trusted key signed the statement, not that the signer
 ## Contributing
 
 Issues, threat-model reviews, independent implementations, interoperability vectors, and proposed profiles are welcome. Please do not submit private DDC algorithms or credentials. A protocol change needs a specification update, deterministic test vectors, adversarial tests, and a documented compatibility decision. Security reports should follow `SECURITY.md` rather than public exploit disclosure.
+
+## Release status
+
+The 0.1.1 reference implementation includes bounded lineage verification and remains experimental. The v0.1 wire format is unchanged. See docs/RELEASE-0.1.1.md for assurance scope and limitations. No production payment, cloud, or physical-device execution is authorized by this release.
