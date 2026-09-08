@@ -171,7 +171,7 @@ def verify_receipt(r,*,trust=None,previous_receipts=None,seen_nonces=None,now=No
         if mode=='preflight' and r['authority_grant'] and now>timestamp(r['authority_grant']['expires_at']): fail('human authority expired now')
         if cutoff>now: fail('event in the future relative to verifier clock')
         for i,ev in enumerate(r['evidence']):
-            if timestamp(ev['observed_at'])>issued or cutoff>timestamp(ev['valid_until']): fail('stale evidence at index '+str(i))
+            if timestamp(ev['observed_at'])>issued or (max(cutoff,now) if mode=='preflight' else cutoff)>timestamp(ev['valid_until']): fail('stale evidence at index '+str(i))
             if external_evidence is not None:
                 data=external_evidence.get(ev['digest'])
                 if data is None: fail('missing external evidence '+ev['digest'])
