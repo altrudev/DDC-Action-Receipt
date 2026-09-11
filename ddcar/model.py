@@ -171,6 +171,7 @@ def verify_receipt(r,*,trust=None,previous_receipts=None,seen_nonces=None,now=No
             g=r['authority_grant']; a=r['authority']
             if g['principal']!=a['principal'] or not _scope_contains(g['scope'],a['scope']): fail('authority scope/principal mismatch')
             if g['agent']!=r['agent']['id'] or g['action_digest']!=r['requested_action_digest']: fail('authority grant action/agent mismatch')
+            if g['nonce']!=r['nonce']: fail('authority grant nonce mismatch')
             if trust.get('bindings',{}).get('authority',{}).get(r['authority_proof']['key_id'])!=g['principal']: fail('authority key is not bound to principal')
             if timestamp(g['issued_at'])>timestamp(r['issued_at']): fail('authority grant issued after decision')
             if r['expires_at'] and timestamp(r['expires_at'])>timestamp(g['expires_at']): fail('receipt exceeds grant expiry')
