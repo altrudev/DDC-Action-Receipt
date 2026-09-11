@@ -10,7 +10,7 @@ VERSION='0.1'
 DOMAINS={'authority':'authority-v0.1','decision':'decision-v0.1','execution':'execution-v0.1'}
 DECISIONS={'ALLOW','BLOCK','HUMAN-REVIEW'}
 REQUIRED_DIMENSIONS=('semantic','authority','state','resource','security','physical','lineage')
-SCOPE_KEYS={'max_amount','destination','currency','tool_id','operation'}
+SCOPE_KEYS={'max_amount','destination','currency','tool_id','operation','frame','workspace','max_speed','max_force','max_payload'}
 
 def utc_now(): return datetime.now(timezone.utc).isoformat().replace('+00:00','Z')
 def timestamp(s):
@@ -81,11 +81,48 @@ def _scope_contains(parent,child):
         return all(any(_scope_contains(p,c) for p in parent) for c in child)
     return type(parent)==type(child) and parent==child
 
+def _finite_decimal(v):
+    if isinstance(v,bool) or not isinstance(v,(str,int)): raise ValueError('decimal required')
+    d=Decimal(str(v))
+    if not d.is_finite() or d<0: raise ValueError('finite nonnegative decimal required')
+    return d
+
+def _physical_within_scope(action,scope):
+    params=action['parameters']
+    if scope.get('tool_id')!=action['tool']['id'] or scope.get('operation')!=action['operation']: return False
+    if 'frame' in scope:
+        try:
+            target=params['target']
+            if not isinstance(target,dict) or not target: return False
+            if any(v.get('frame')!=scope['frame'] for v in target.values()): return False
+        except (KeyError,TypeError,AttributeError): return False
+    if 'workspace' in scope:
+        try:
+            target=params['target']; workspace=scope['workspace']
+            if set(workspace)!=set(target): return False
+            for axis,bounds in workspace.items():
+                if not isinstance(bounds,list) or len(bounds)!=2: return False
+                lo,hi=Decimal(str(bounds[0])),Decimal(str(bounds[1]))
+                if not lo.is_finite() or not hi.is_finite() or lo>hi: return False
+                value=Decimal(str(target[axis]['value']))
+                if not value.is_finite() or value<lo or value>hi: return False
+        except (KeyError,TypeError,InvalidOperation): return False
+    for sk,pk in (('max_speed','speed'),('max_force','force'),('max_payload','payload')):
+        if sk in scope:
+            try:
+                value=_finite_decimal(params[pk]['value']); limit=_finite_decimal(scope[sk])
+                if value>limit: return False
+            except (KeyError,TypeError,ValueError,InvalidOperation): return False
+    return True
+
 def _action_within_scope(action,scope):
-    """Known payment constraints. Unknown constraints require an external policy engine."""
+    """Known payment and physical constraints. Unknown constraints fail closed."""
     params=action['parameters']
     if not scope or set(scope)-SCOPE_KEYS: return False
     if not {'tool_id','operation'}.issubset(scope): return False
+    physical_keys={'frame','workspace','max_speed','max_force','max_payload'}
+    if set(scope)&physical_keys:
+        return _physical_within_scope(action,scope)
     if scope.get('tool_id',action['tool']['id'])!=action['tool']['id']: return False
     if scope.get('operation',action['operation'])!=action['operation']: return False
     if 'max_amount' in scope:
