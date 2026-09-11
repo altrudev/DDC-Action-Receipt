@@ -38,7 +38,7 @@ Nonces are scoped to issuer/security domain. A production executor MUST atomical
 
 ## 6. Assurance and policy
 
-The public fields expose results, claims and evidence references, never proprietary DDC algorithms. ALLOW requires PASS for semantic, authority, state, resource, security, physical and lineage assurance dimensions in this reference profile. Frequency is observational/non-authoritative and cannot grant permission or override a failed dimension. Explicit prerequisites and permissions must all PASS. Unknown scope constraints fail closed in the reference evaluator. Supported scope keys are max_amount, destination, currency, tool_id and operation; the decimal limit uses finite, nonnegative decimal-string comparison. Other policy vocabularies require a separately defined evaluator/profile. An ALLOW requires a bounded receipt expiry not later than its authority-grant expiry, and explicit tool_id and operation scope constraints; an empty scope is never unrestricted authority.
+The public fields expose results, claims and evidence references, never proprietary DDC algorithms. ALLOW requires PASS for semantic, authority, state, resource, security, physical and lineage assurance dimensions in this reference profile. Frequency is observational/non-authoritative and cannot grant permission or override a failed dimension. Explicit prerequisites and permissions must all PASS. Unknown scope constraints fail closed in the reference evaluator. Supported scope keys are max_amount, destination, currency, tool_id, operation, frame, workspace, max_speed, max_force and max_payload. Payment limits use finite, nonnegative decimal-string comparison. The physical profile binds a tool/device identity and operation and may additionally constrain coordinate frame, per-axis workspace bounds, speed, force and payload ceilings. Unknown keys still fail closed. Unit semantics remain part of the committed tool/schema profile and must be independently validated by the physical assurance layer. An ALLOW requires a bounded receipt expiry not later than its authority-grant expiry, and explicit tool_id and operation scope constraints; an empty scope is never unrestricted authority.
 
 The verifier checks signed assertions and the supported constraint vocabulary. It does not independently reproduce DDC reasoning. Unresolved contradictions require refusal or human review; model confidence, repetition, urgency or observed data never create authority.
 
@@ -53,3 +53,16 @@ The verifier checks signed assertions and the supported constraint vocabulary. I
 ## 9. Open interfaces and evolution
 
 The specification, schema, verifier, vectors and adapters are public under Apache-2.0. DDC Action Gate may emit the public assurance claims; DDCAL may verify them without being a mandatory service. Future profiles may use COSE/DSSE, OAuth RAR, SPIFFE, hardware-backed attestations and SCITT registration. Such profiles must specify exact byte/signature semantics and independently testable trust requirements. v0.1 must not claim interoperability with a format merely because it uses similar terminology.
+
+
+## 10. Physical-action authority profile
+
+The reference verifier includes a conservative physical-action scope profile intended for composition with an independent physical assurance gate.
+
+A physical scope MUST contain `tool_id` and `operation`. It MAY contain `frame`, `workspace`, `max_speed`, `max_force`, and `max_payload`.
+
+`workspace` is an object keyed by coordinate axis. Each value is a two-element inclusive lower/upper bound. The requested action's `parameters.target` MUST contain exactly the same axes and each requested coordinate MUST fall within the bound. If `frame` is present, every target coordinate MUST commit to that exact frame.
+
+`max_speed`, `max_force`, and `max_payload` are finite nonnegative decimal ceilings. Their requested parameter objects are expected at `parameters.speed.value`, `parameters.force.value`, and `parameters.payload.value` respectively when the corresponding scope constraint is present.
+
+This profile verifies authority containment only. It does not replace device-state validation, trajectory analysis, collision avoidance, functional safety, interlocks, emergency-stop systems, or certified safety controllers. A DDCAR-valid physical receipt is evidence that a signed action remained within the signed authority vocabulary; it is not proof that the physical action was safe or that the claimed physical outcome occurred.
