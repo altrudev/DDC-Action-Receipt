@@ -64,5 +64,4 @@ def test_vector_action_digest_and_nonce_tamper_fail():
     r['requested_action_digest']=sha256_digest(r['requested_action']); r=_decision_only_after_mutation(r,k)
     assert any('action/agent' in e for e in verify_receipt(r,trust=t,now=NOW,require_execution=False))
     r,k,t=build(); r['nonce']='fedcba9876543210fedcba9876543210'; r=_decision_only_after_mutation(r,k)
-    # receipt nonce is independently replay-scoped; authority grant nonce remains different and is visible evidence.
-    assert r['authority_grant']['nonce']!=r['nonce']
+    assert any('nonce mismatch' in e for e in verify_receipt(r,trust=t,now=NOW,require_execution=False))
