@@ -18,7 +18,7 @@ Canonicalization is DDCAR-CJ1: UTF-8, RFC 8785-compatible JSON serialization res
 
 ## 3. Authority and signatures
 
-The grant contains principal, agent, exact action digest, scope, nonce, issuance/expiry times and optional delegation parent. The grant nonce MUST exactly equal the receipt nonce so authority cannot be detached from the receipt's replay domain. A human/organizational authority signs this grant. The receipt binds the grant and its proof; the gate signs the decision payload. The executor signs the decision digest, decision proof and execution object.
+The grant contains principal, agent, exact action digest, scope, nonce, issuance/expiry times and optional delegation parent. A human/organizational authority signs this grant. The receipt binds the grant and its proof; the gate signs the decision payload. The executor signs the decision digest, decision proof and execution object.
 
 The `ddcar-ed25519-v1` profile signs `UTF8("DDCAR\\0" + domain + "\\0") || canonical_payload`, where domain is `authority-v0.1`, `decision-v0.1` or `execution-v0.1`. The separators are actual zero bytes. Signatures use unpadded canonical base64url. The verifier MUST use externally configured public keys and key-to-principal bindings. Embedded names or supplied keys alone do not establish trust. Decision and execution public keys MUST differ. Production systems SHOULD use distinct credentials and execution environments for human authority, gate and executor.
 
