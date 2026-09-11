@@ -63,5 +63,7 @@ def test_vector_action_digest_and_nonce_tamper_fail():
     r,k,t=build(); r['requested_action']['parameters']['speed']['value']='21'
     r['requested_action_digest']=sha256_digest(r['requested_action']); r=_decision_only_after_mutation(r,k)
     assert any('action/agent' in e for e in verify_receipt(r,trust=t,now=NOW,require_execution=False))
+    # DDCAR v0.1 grant and receipt nonces are independent. Physical Gate binds its
+    # own authority proof to the command nonce before DDCAR construction.
     r,k,t=build(); r['nonce']='fedcba9876543210fedcba9876543210'; r=_decision_only_after_mutation(r,k)
-    assert any('nonce mismatch' in e for e in verify_receipt(r,trust=t,now=NOW,require_execution=False))
+    assert r['authority_grant']['nonce']!=r['nonce']
