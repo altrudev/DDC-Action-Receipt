@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from copy import deepcopy
 from ddcar.crypto import generate_keypair, sha256_digest, sha256_bytes
 from ddcar.model import *
+from ddcar.physical_conformance import run as run_conformance, build_receipt
 
 ROOT=Path(__file__).resolve().parents[1]
 T='1970-01-01T00:16:40Z'
@@ -67,3 +68,34 @@ def test_vector_action_digest_and_nonce_tamper_fail():
     # own authority proof to the command nonce before DDCAR construction.
     r,k,t=build(); r['nonce']='fedcba9876543210fedcba9876543210'; r=_decision_only_after_mutation(r,k)
     assert r['authority_grant']['nonce']!=r['nonce']
+
+
+def test_reusable_conformance_runner_passes():
+    report=run_conformance()
+    assert report['status']=='PASS'
+    assert report['errors']==[]
+    assert report['decision']=='ALLOW'
+    assert report['execution_status']=='SUCCEEDED'
+
+def test_conformance_signature_tamper_fails():
+    r,k,t=build_receipt()
+    r['decision_proof']['signature']='A'*86
+    assert verify_receipt(r,trust=t,now=NOW)
+
+def test_conformance_execution_substitution_fails():
+    r,k,t=build_receipt()
+    r['execution']['exact_action']['parameters']['target']['x']['value']='11'
+    assert any('substitution' in e or 'signature' in e for e in verify_receipt(r,trust=t,now=NOW))
+
+def test_conformance_stale_evidence_fails_preflight():
+    r,k,t=build_receipt()
+    r['evidence'][0]['valid_until']='1970-01-01T00:16:40.100000Z'
+    r['decision_proof']=None; r['execution']=None; r['execution_proof']=None
+    r=seal_decision(r,k['decision'][0],'decision-key')
+    errs=verify_receipt(r,trust=t,now=NOW,mode='preflight',require_execution=False)
+    assert any('stale evidence' in e for e in errs)
+
+def test_conformance_replay_fails():
+    r,k,t=build_receipt()
+    seen={r['issuer']['id']+'\0'+r['nonce']}
+    assert any('replay detected' in e for e in verify_receipt(r,trust=t,now=NOW,seen_nonces=seen))
