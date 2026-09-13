@@ -55,6 +55,9 @@ def make_execution_binding(
     closure_evidence_digest=None,
     enforcement_digest=None,
     worker_attestation_digest=None,
+    dispatch_request_digest=None,
+    observed_effect_digest=None,
+    confirmed_effect_digest=None,
     full_evidence_digest=None,
     evidence_refs=None,
 ):
@@ -83,6 +86,9 @@ def make_execution_binding(
         "closure_evidence_digest": None,
         "enforcement_digest": None,
         "worker_attestation_digest": None,
+        "dispatch_request_digest": None,
+        "observed_effect_digest": None,
+        "confirmed_effect_digest": None,
         "full_evidence_digest": None,
         "evidence_refs": list(evidence_refs or []),
     }
@@ -90,6 +96,9 @@ def make_execution_binding(
         ("closure_evidence_digest", closure_evidence_digest),
         ("enforcement_digest", enforcement_digest),
         ("worker_attestation_digest", worker_attestation_digest),
+        ("dispatch_request_digest", dispatch_request_digest),
+        ("observed_effect_digest", observed_effect_digest),
+        ("confirmed_effect_digest", confirmed_effect_digest),
         ("full_evidence_digest", full_evidence_digest),
     ):
         if value is not None:
@@ -163,6 +172,9 @@ def verify_execution_binding(
     expected_closure_evidence_digest=None,
     expected_enforcement_digest=None,
     expected_worker_attestation_digest=None,
+    expected_dispatch_request_digest=None,
+    expected_observed_effect_digest=None,
+    expected_confirmed_effect_digest=None,
     expected_full_evidence_digest=None,
 ):
     errors = []
@@ -224,6 +236,9 @@ def verify_execution_binding(
             "closure_evidence_digest",
             "enforcement_digest",
             "worker_attestation_digest",
+            "dispatch_request_digest",
+            "observed_effect_digest",
+            "confirmed_effect_digest",
             "full_evidence_digest",
         ):
             if binding.get(field) is not None:
@@ -245,6 +260,9 @@ def verify_execution_binding(
             "closure_evidence_digest": expected_closure_evidence_digest,
             "enforcement_digest": expected_enforcement_digest,
             "worker_attestation_digest": expected_worker_attestation_digest,
+            "dispatch_request_digest": expected_dispatch_request_digest,
+            "observed_effect_digest": expected_observed_effect_digest,
+            "confirmed_effect_digest": expected_confirmed_effect_digest,
             "full_evidence_digest": expected_full_evidence_digest,
         }
         for field, value in expected.items():
