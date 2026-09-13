@@ -55,6 +55,9 @@ valid_until
 closure_evidence_digest?
 enforcement_digest?
 worker_attestation_digest?
+dispatch_request_digest?
+observed_effect_digest?
+confirmed_effect_digest?
 full_evidence_digest?
 evidence_refs[]
 ```
@@ -90,6 +93,23 @@ A signed digest does not independently prove that every bypass path was closed. 
 The context set is evidence/data only. It must never create authority.
 
 A verifier that relies on context integrity should separately verify source provenance, representation binding, policy/purpose, and freshness for the referenced context set.
+
+## 7.1 Authorization, dispatch, and effect are distinct
+
+The approved action representation, the actual dispatched request, and the observed external effect may be three different objects.
+
+The companion artifact can therefore bind separately:
+
+- `action_digest` — the action representation evaluated/authorized by DDC;
+- `dispatch_request_digest` — the exact request representation sent across the tool/provider boundary;
+- `observed_effect_digest` — evidence of the observed resulting state/effect;
+- `confirmed_effect_digest` — an independently confirmed effect object where the deployment provides one.
+
+A dispatch digest does not prove that the requested effect occurred.
+
+An observed effect does not become a confirmed effect merely because the executor reports it.
+
+Adapters should preserve transformation lineage between the authorized action and dispatched representation so a verifier can determine whether they correspond under the selected profile.
 
 ## 8. Worker attestation
 
