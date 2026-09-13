@@ -133,8 +133,10 @@ def signed_binding_digest(package):
 
 
 def binding_evidence_entry(package, *, observed_at, valid_until, source="ddcar-execution-binding"):
-    _timestamp(observed_at)
-    _timestamp(valid_until)
+    observed = _timestamp(observed_at)
+    valid = _timestamp(valid_until)
+    if valid <= observed:
+        raise ValueError("evidence validity must be positive")
     return {
         "type": "execution-binding",
         "digest": sha256_bytes(canonical_bytes(package)),
@@ -151,11 +153,17 @@ def verify_execution_binding(
     now=None,
     expected_receipt_digest=None,
     expected_action_digest=None,
+    expected_authority_root_digest=None,
+    expected_authority_leaf_digest=None,
+    expected_state_digest=None,
     expected_policy_digest=None,
     expected_tool_contract_digest=None,
     expected_route_proof_digest=None,
     expected_context_set_digest=None,
+    expected_closure_evidence_digest=None,
+    expected_enforcement_digest=None,
     expected_worker_attestation_digest=None,
+    expected_full_evidence_digest=None,
 ):
     errors = []
 
@@ -190,7 +198,9 @@ def verify_execution_binding(
         now_value = now or datetime.now(timezone.utc)
         if now_value.tzinfo is None:
             fail("verifier clock must be timezone-aware")
-        elif now_value > valid:
+        elif now_value < observed:
+            fail("binding not yet valid")
+        elif now_value >= valid:
             fail("binding expired")
 
         digest_fields = (
@@ -225,11 +235,17 @@ def verify_execution_binding(
         expected = {
             "receipt_digest": expected_receipt_digest,
             "action_digest": expected_action_digest,
+            "authority_root_digest": expected_authority_root_digest,
+            "authority_leaf_digest": expected_authority_leaf_digest,
+            "state_digest": expected_state_digest,
             "policy_digest": expected_policy_digest,
             "tool_contract_digest": expected_tool_contract_digest,
             "route_proof_digest": expected_route_proof_digest,
             "context_set_digest": expected_context_set_digest,
+            "closure_evidence_digest": expected_closure_evidence_digest,
+            "enforcement_digest": expected_enforcement_digest,
             "worker_attestation_digest": expected_worker_attestation_digest,
+            "full_evidence_digest": expected_full_evidence_digest,
         }
         for field, value in expected.items():
             if value is not None and binding.get(field) != value:
