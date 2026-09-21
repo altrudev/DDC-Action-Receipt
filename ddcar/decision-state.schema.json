@@ -1,0 +1,124 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://altru.dev/ddc/schemas/decision-state-v1.schema.json",
+  "title": "DDCAR Decision-State Evidence Profile v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "profile",
+    "receipt_id",
+    "requested_action_digest",
+    "decision_actor",
+    "decision_time",
+    "available_evidence",
+    "required_evidence",
+    "consulted_evidence",
+    "unresolved_assumptions"
+  ],
+  "properties": {
+    "profile": {"const": "ddcar-decision-state-v1"},
+    "receipt_id": {"type": "string", "minLength": 1},
+    "requested_action_digest": {"$ref": "#/$defs/digest"},
+    "decision_actor": {"type": "string", "minLength": 1},
+    "decision_time": {"$ref": "#/$defs/time"},
+    "authority_valid_from": {
+      "oneOf": [{"$ref": "#/$defs/time"}, {"type": "null"}]
+    },
+    "authority_valid_until": {
+      "oneOf": [{"$ref": "#/$defs/time"}, {"type": "null"}]
+    },
+    "available_evidence": {
+      "type": "array",
+      "maxItems": 256,
+      "items": {"$ref": "#/$defs/evidenceState"},
+      "uniqueItems": true
+    },
+    "required_evidence": {
+      "type": "array",
+      "maxItems": 256,
+      "items": {"$ref": "#/$defs/digest"},
+      "uniqueItems": true
+    },
+    "consulted_evidence": {
+      "type": "array",
+      "maxItems": 256,
+      "items": {"$ref": "#/$defs/digest"},
+      "uniqueItems": true
+    },
+    "unresolved_assumptions": {
+      "type": "array",
+      "maxItems": 256,
+      "items": {"type": "string", "minLength": 1, "maxLength": 1024}
+    },
+    "contradictions": {
+      "type": "array",
+      "maxItems": 256,
+      "items": {"type": "string", "minLength": 1, "maxLength": 1024}
+    },
+    "evidence_channel_notes": {
+      "type": "array",
+      "maxItems": 256,
+      "items": {"type": "string", "minLength": 1, "maxLength": 1024}
+    }
+  },
+  "$defs": {
+    "time": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "(Z|[+-][0-9]{2}:[0-9]{2})$"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "evidenceState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "digest",
+        "event_time",
+        "evidence_created_at",
+        "evidence_available_at",
+        "existed",
+        "reachable",
+        "discoverable",
+        "fresh",
+        "accessible",
+        "trusted",
+        "consulted"
+      ],
+      "properties": {
+        "digest": {"$ref": "#/$defs/digest"},
+        "event_time": {
+          "oneOf": [{"$ref": "#/$defs/time"}, {"type": "null"}]
+        },
+        "evidence_created_at": {
+          "oneOf": [{"$ref": "#/$defs/time"}, {"type": "null"}]
+        },
+        "evidence_available_at": {
+          "oneOf": [{"$ref": "#/$defs/time"}, {"type": "null"}]
+        },
+        "source": {"type": ["string", "null"]},
+        "source_authority_scope": {
+          "type": "array",
+          "items": {"type": "string"},
+          "maxItems": 64
+        },
+        "causal_provenance": {"type": ["string", "null"]},
+        "transformation_chain": {
+          "type": "array",
+          "items": {"type": "string"},
+          "maxItems": 64
+        },
+        "independence_group": {"type": ["string", "null"]},
+        "existed": {"type": ["boolean", "null"]},
+        "reachable": {"type": ["boolean", "null"]},
+        "discoverable": {"type": ["boolean", "null"]},
+        "fresh": {"type": ["boolean", "null"]},
+        "accessible": {"type": ["boolean", "null"]},
+        "trusted": {"type": ["boolean", "null"]},
+        "consulted": {"type": ["boolean", "null"]}
+      }
+    }
+  }
+}
