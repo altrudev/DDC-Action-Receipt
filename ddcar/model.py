@@ -137,6 +137,8 @@ def _verify_decision_state_profile(r, external_evidence, fail):
             created=timestamp(item['evidence_created_at']) if item.get('evidence_created_at') else None
             available_at=timestamp(item['evidence_available_at']) if item.get('evidence_available_at') else None
             event_time=timestamp(item['event_time']) if item.get('event_time') else None
+            if event_time and created and event_time>created:
+                fail('evidence event occurs after evidence creation '+digest)
             if created and available_at and created>available_at:
                 fail('evidence created after availability '+digest)
             if claimed_consulted and available_at is None:
@@ -324,7 +326,7 @@ def verify_receipt(r,*,trust=None,previous_receipts=None,seen_nonces=None,now=No
             parent=previous_receipts.get(d)
             if parent is None: fail('missing lineage parent '+d); continue
             if receipt_digest(parent)!=d: fail('forged lineage parent '+d); continue
-            pe=verify_receipt(parent,trust=trust,previous_receipts=previous_receipts,now=now,require_execution=True,_visited=visited|{digest},_memo=_memo,_budget=_budget)
+            pe=verify_receipt(parent,trust=trust,previous_receipts=previous_receipts,now=now,require_execution=True,external_evidence=external_evidence,_visited=visited|{digest},_memo=_memo,_budget=_budget)
             if pe: fail('invalid lineage parent '+d+': '+'; '.join(pe))
             try:
                 if d==r['lineage']['delegation_parent']:
