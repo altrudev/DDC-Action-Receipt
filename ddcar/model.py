@@ -90,15 +90,24 @@ def _verify_decision_state_profile(r, external_evidence, fail):
 
     try:
         decision_time=timestamp(state['decision_time'])
-        if state.get('authority_valid_from') and decision_time<timestamp(state['authority_valid_from']):
+        authority_from=timestamp(state['authority_valid_from'])
+        authority_until=timestamp(state['authority_valid_until'])
+        if decision_time<authority_from:
             fail('decision-state authority not yet valid')
-        if state.get('authority_valid_until') and decision_time>timestamp(state['authority_valid_until']):
+        if decision_time>authority_until:
             fail('decision-state authority expired')
+        if r.get('authority_grant'):
+            if authority_from!=timestamp(r['authority_grant']['issued_at']):
+                fail('decision-state authority start binding mismatch')
+            if authority_until!=timestamp(r['authority_grant']['expires_at']):
+                fail('decision-state authority expiry binding mismatch')
     except Exception as e:
         fail('decision-state authority time: '+str(e))
 
     available=state['available_evidence']
     by_digest={item['digest']:item for item in available}
+    if len(by_digest)!=len(available):
+        fail('duplicate decision-state evidence digest')
     available_set=set(by_digest)
     required=set(state['required_evidence'])
     consulted=set(state['consulted_evidence'])
