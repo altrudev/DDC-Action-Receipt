@@ -62,6 +62,89 @@ def bind_execution(r,*,tool,operation,parameters,outcome,executor,private_key,ke
 
 def receipt_digest(r): return sha256_digest(r)
 
+def _verify_decision_state_profile(r, external_evidence, fail):
+    from .evidence_state import EVIDENCE_TYPE, parse_decision_state
+    profile_entries=[ev for ev in r['evidence'] if ev.get('type')==EVIDENCE_TYPE]
+    if not profile_entries: return
+    if len(profile_entries)!=1:
+        fail('decision-state profile requires exactly one evidence entry')
+        return
+    ev=profile_entries[0]
+    if external_evidence is None:
+        fail('missing external decision-state evidence '+ev['digest'])
+        return
+    data=external_evidence.get(ev['digest'])
+    if data is None:
+        fail('missing external decision-state evidence '+ev['digest'])
+        return
+    try:
+        state=parse_decision_state(data)
+    except Exception as e:
+        fail('decision-state evidence: '+str(e))
+        return
+
+    if state['receipt_id']!=r['receipt_id']: fail('decision-state receipt binding mismatch')
+    if state['requested_action_digest']!=r['requested_action_digest']: fail('decision-state action binding mismatch')
+    if state['decision_actor']!=r['issuer']['id']: fail('decision-state actor binding mismatch')
+    if timestamp(state['decision_time'])!=timestamp(r['issued_at']): fail('decision-state time binding mismatch')
+
+    try:
+        decision_time=timestamp(state['decision_time'])
+        if state.get('authority_valid_from') and decision_time<timestamp(state['authority_valid_from']):
+            fail('decision-state authority not yet valid')
+        if state.get('authority_valid_until') and decision_time>timestamp(state['authority_valid_until']):
+            fail('decision-state authority expired')
+    except Exception as e:
+        fail('decision-state authority time: '+str(e))
+
+    available=state['available_evidence']
+    by_digest={item['digest']:item for item in available}
+    available_set=set(by_digest)
+    required=set(state['required_evidence'])
+    consulted=set(state['consulted_evidence'])
+    receipt_evidence={
+        item['digest'] for item in r['evidence']
+        if item.get('type')!=EVIDENCE_TYPE
+    }
+
+    missing_available=consulted-available_set
+    if missing_available:
+        fail('consulted evidence not available: '+','.join(sorted(missing_available)))
+    missing_receipt=consulted-receipt_evidence
+    if missing_receipt:
+        fail('consulted evidence not committed in receipt: '+','.join(sorted(missing_receipt)))
+    if r['decision']=='ALLOW':
+        missing_required=required-consulted
+        if missing_required:
+            fail('ALLOW without required consulted evidence: '+','.join(sorted(missing_required)))
+        if state.get('contradictions'):
+            fail('ALLOW with unresolved decision-state contradictions')
+
+    for digest,item in by_digest.items():
+        claimed_consulted=(digest in consulted)
+        if item.get('consulted') is not None and item.get('consulted')!=claimed_consulted:
+            fail('decision-state consulted flag mismatch '+digest)
+        try:
+            created=timestamp(item['evidence_created_at']) if item.get('evidence_created_at') else None
+            available_at=timestamp(item['evidence_available_at']) if item.get('evidence_available_at') else None
+            event_time=timestamp(item['event_time']) if item.get('event_time') else None
+            if created and available_at and created>available_at:
+                fail('evidence created after availability '+digest)
+            if claimed_consulted and available_at is None:
+                fail('consulted evidence missing availability time '+digest)
+            if claimed_consulted and available_at and available_at>decision_time:
+                fail('retroactive knowledge in consulted evidence '+digest)
+            if claimed_consulted and event_time and event_time>decision_time:
+                fail('future event used as decision evidence '+digest)
+        except Exception as e:
+            fail('decision-state evidence time '+digest+': '+str(e))
+
+        if claimed_consulted:
+            for field in ('existed','reachable','fresh','accessible','trusted'):
+                if item.get(field) is False:
+                    fail('consulted evidence marked '+field+'=false '+digest)
+
+
 def _scope_contains(parent,child):
     """Conservative scope subset: exact fields, explicit decimal ceilings only."""
     if isinstance(parent,dict) and isinstance(child,dict):
@@ -216,6 +299,7 @@ def verify_receipt(r,*,trust=None,previous_receipts=None,seen_nonces=None,now=No
                     from .crypto import sha256_bytes
                     if sha256_bytes(data)!=ev['digest']: fail('external evidence digest mismatch')
     except Exception as e: fail('time/evidence: '+str(e))
+    _verify_decision_state_profile(r,external_evidence,fail)
     if r['decision']=='ALLOW':
         if not r['evidence']: fail('ALLOW without observed evidence')
         if not r['permissions'] or not r['prerequisites']: fail('ALLOW without explicit permission/prerequisite checks')
