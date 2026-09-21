@@ -38,6 +38,10 @@ Portable receipt → independent verifier / DDCAL
 
 The public protocol is independent of DDC. DDC Action Gate can act as an issuer; DDCAL can verify and report on receipts. Neither service is required to run the open verifier. See `spec/`, `docs/THREAT-MODEL.md`, `docs/DDC-ASSURANCE.md`, and `docs/INTEGRATION.md`.
 
+### Decision-time evidence profile
+
+The optional `ddc-decision-state-v1` profile commits a canonical external snapshot of what evidence existed, what was reachable and timely, what policy required, and what the decision actor actually consulted. Its digest is carried inside the existing signed v0.1 `evidence` array, so the base v0.1 wire format remains unchanged. When the profile is present, semantic verification fails closed unless the corresponding external sidecar is supplied. See `docs/DDC-EVIDENCE-STATE-PROFILE-v1.md`.
+
 ## Scope and limitations
 
 The reference profile supports exact human grants, bounded decimal amounts, destination/currency/tool/operation constraints, separate signing identities, immutable action commitments, evidence digests, historical/preflight time checks, explicit lineage and delegation edges, and SQLite replay reservation. MCP, HTTP, and GitHub adapter constructors are provided with an injected transport boundary. They do not silently execute live requests or acquire credentials.
