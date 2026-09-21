@@ -10,6 +10,8 @@
     "requested_action_digest",
     "decision_actor",
     "decision_time",
+    "authority_valid_from",
+    "authority_valid_until",
     "available_evidence",
     "required_evidence",
     "consulted_evidence",
