@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 import pytest
 from ddcar.crypto import generate_keypair, sha256_digest, sha256_bytes, sign_obj
 from ddcar.model import *
+from ddcar.evidence_state import make_decision_state, decision_state_bytes, decision_state_digest, decision_state_evidence_entry
 from ddcar.replay import ReplayStore
 from ddcar.adapters import execute_committed, mcp_action, http_action, github_action
 
@@ -187,3 +188,155 @@ def test_empty_evidence_and_checks_fail_closed():
     for field in ('evidence','permissions','prerequisites'):
         r,k,t=fixture(); r[field]=[]; r=seal_again(r,k)
         assert verify(r,t,require_execution=False)
+
+
+def _with_decision_state(r,k,*,available_at=T,required=True,consulted=True,contradictions=None):
+    r=seal_again(r,k)
+    base_digest=r['evidence'][0]['digest']
+    state=make_decision_state(
+        receipt_id=r['receipt_id'],
+        requested_action_digest=r['requested_action_digest'],
+        decision_actor=r['issuer']['id'],
+        decision_time=r['issued_at'],
+        authority_valid_from=r['authority_grant']['issued_at'],
+        authority_valid_until=r['authority_grant']['expires_at'],
+        available_evidence=[{
+            'digest':base_digest,
+            'event_time':r['evidence'][0]['observed_at'],
+            'evidence_created_at':r['evidence'][0]['observed_at'],
+            'evidence_available_at':available_at,
+            'source':'state-service',
+            'source_authority_scope':['state observation'],
+            'causal_provenance':'pre-decision state observation',
+            'transformation_chain':[],
+            'independence_group':'state-service',
+            'existed':True,
+            'reachable':True,
+            'discoverable':True,
+            'fresh':True,
+            'accessible':True,
+            'trusted':True,
+            'consulted':consulted,
+        }],
+        required_evidence=[base_digest] if required else [],
+        consulted_evidence=[base_digest] if consulted else [],
+        unresolved_assumptions=[],
+        contradictions=contradictions or [],
+    )
+    r['evidence'].append(decision_state_evidence_entry(state,valid_until=E))
+    r=seal_again(r,k)
+    external={
+        base_digest:b'state',
+        decision_state_digest(state):decision_state_bytes(state),
+    }
+    return r,state,external
+
+
+def test_decision_state_profile_valid_and_v01_wire_compatible():
+    r,k,t=fixture()
+    r,state,external=_with_decision_state(r,k)
+    assert r['version']=='0.1'
+    assert verify_receipt(r,trust=t,now=NOW,require_execution=False,external_evidence=external)==[]
+
+
+def test_decision_state_rejects_retroactive_knowledge():
+    r,k,t=fixture()
+    r,state,external=_with_decision_state(
+        r,k,available_at='2026-09-06T12:10:00Z'
+    )
+    errors=verify_receipt(
+        r,trust=t,now=NOW,require_execution=False,external_evidence=external
+    )
+    assert any('retroactive knowledge' in e for e in errors)
+
+
+def test_decision_state_allow_requires_required_evidence_to_be_consulted():
+    r,k,t=fixture()
+    r,state,external=_with_decision_state(r,k,required=True,consulted=False)
+    errors=verify_receipt(
+        r,trust=t,now=NOW,require_execution=False,external_evidence=external
+    )
+    assert any('required consulted evidence' in e for e in errors)
+
+
+def test_decision_state_allow_preserves_contradictions_fail_closed():
+    r,k,t=fixture()
+    r,state,external=_with_decision_state(
+        r,k,contradictions=['provider and local state disagree']
+    )
+    errors=verify_receipt(
+        r,trust=t,now=NOW,require_execution=False,external_evidence=external
+    )
+    assert any('unresolved decision-state contradictions' in e for e in errors)
+
+
+def test_decision_state_profile_requires_sidecar_for_semantic_verification():
+    r,k,t=fixture()
+    r,state,external=_with_decision_state(r,k)
+    errors=verify_receipt(r,trust=t,now=NOW,require_execution=False)
+    assert any('missing external decision-state evidence' in e for e in errors)
+
+
+def test_decision_state_authority_window_must_bind_receipt_grant():
+    r,k,t=fixture()
+    r,state,external=_with_decision_state(r,k)
+    bad=deepcopy(state)
+    bad['authority_valid_until']='2026-09-06T12:45:00Z'
+    bad_bytes=decision_state_bytes(bad)
+    old_digest=decision_state_digest(state)
+    new_digest=sha256_bytes(bad_bytes)
+    for ev in r['evidence']:
+        if ev.get('type')=='ddc-decision-state-v1':
+            ev['digest']=new_digest
+    r=seal_again(r,k)
+    external.pop(old_digest)
+    external[new_digest]=bad_bytes
+    errors=verify_receipt(
+        r,trust=t,now=NOW,require_execution=False,external_evidence=external
+    )
+    assert any('authority expiry binding mismatch' in e for e in errors)
+
+
+def test_decision_state_rejects_impossible_evidence_clock_order():
+    r,k,t=fixture()
+    r=seal_again(r,k)
+    base_digest=r['evidence'][0]['digest']
+    state=make_decision_state(
+        receipt_id=r['receipt_id'],
+        requested_action_digest=r['requested_action_digest'],
+        decision_actor=r['issuer']['id'],
+        decision_time=r['issued_at'],
+        authority_valid_from=r['authority_grant']['issued_at'],
+        authority_valid_until=r['authority_grant']['expires_at'],
+        available_evidence=[{
+            'digest':base_digest,
+            'event_time':'2026-09-06T12:00:05Z',
+            'evidence_created_at':'2026-09-06T12:00:04Z',
+            'evidence_available_at':'2026-09-06T12:00:06Z',
+            'source':'state-service',
+            'source_authority_scope':['state observation'],
+            'causal_provenance':'state-service',
+            'transformation_chain':[],
+            'independence_group':'state-service',
+            'existed':True,
+            'reachable':True,
+            'discoverable':True,
+            'fresh':True,
+            'accessible':True,
+            'trusted':True,
+            'consulted':True,
+        }],
+        required_evidence=[base_digest],
+        consulted_evidence=[base_digest],
+        unresolved_assumptions=[],
+    )
+    r['evidence'].append(decision_state_evidence_entry(state,valid_until=E))
+    r=seal_again(r,k)
+    external={
+        base_digest:b'state',
+        decision_state_digest(state):decision_state_bytes(state),
+    }
+    errors=verify_receipt(
+        r,trust=t,now=NOW,require_execution=False,external_evidence=external
+    )
+    assert any('event occurs after evidence creation' in e for e in errors)

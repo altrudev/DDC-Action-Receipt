@@ -15,6 +15,6 @@ ddcar = "ddcar.cli:main"
 [tool.setuptools]
 packages = ["ddcar"]
 [tool.setuptools.package-data]
-ddcar = ["receipt.schema.json"]
+ddcar = ["receipt.schema.json", "decision-state.schema.json"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
